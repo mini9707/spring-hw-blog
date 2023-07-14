@@ -11,15 +11,16 @@ import java.time.LocalDateTime;
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+public abstract class TimeStamped {
 
     @CreatedDate
     @Column(updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
-    private LocalDateTime createAt;
+    private LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime modifiedAt;
 }
+

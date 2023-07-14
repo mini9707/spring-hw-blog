@@ -5,52 +5,44 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Entity
 @Getter
-@Table(name = "post")
 @NoArgsConstructor
-public class Post extends BaseEntity {
+@Table(name = "post")
+public class Post extends TimeStamped {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String title;
 
     @Column(nullable = false)
-    private String name;
-
-    @Column(nullable = false, length = 500)
     private String content;
 
-    @Column(nullable = false)
-    private String password;
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    public Post(PostRequestDto postRequestDto) {
-        this.title = postRequestDto.getTitle();
-        this.name = postRequestDto.getName();
-        this.content = postRequestDto.getContent();
-        this.password = postRequestDto.getPassword();
+    @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE) // mappedBy = 부모 테이블 , cascade = 영속성 전이 -> 부모가 삭제되면 자식도 삭제되는
+    private List<Comment> comments;
+
+    public Post(PostRequestDto requestDto) {
+        this.title = requestDto.getTitle();
+        this.content = requestDto.getContent();
     }
 
-    // Setter
     public void setTitle(String title) {
         this.title = title;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 
     public void setContent(String content) {
         this.content = content;
     }
 
-    // 서비스 함수
-
-    // 비밀번호 체크하는 함수
-    public void checkPassword(String inputPassword) {
-        if (!password.equals(inputPassword)) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
-        }
+    public void setUser(User user) {
+        this.user = user;
     }
 }

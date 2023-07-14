@@ -1,8 +1,11 @@
 package com.sparta.myblog.service;
 
+import com.sparta.myblog.dto.PostListResponseDto;
 import com.sparta.myblog.dto.PostRequestDto;
 import com.sparta.myblog.dto.PostResponseDto;
 import com.sparta.myblog.entity.Post;
+import com.sparta.myblog.entity.User;
+import com.sparta.myblog.entity.UserRoleEnum;
 import com.sparta.myblog.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -10,72 +13,72 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class PostService {
-
     private final PostRepository postRepository;
 
-    @Deprecated
-    public List<PostResponseDto> getPostListV1() {
-        // 방법1. 리스트 반복하며 넣어주기
-        List<Post> postList = postRepository.findAllByOrderByCreateAtDesc();
-        List<PostResponseDto> postResponseDtoList = new ArrayList<>();
-        for (Post post : postList) {
-            postResponseDtoList.add(new PostResponseDto(post));
+    //게시글 작성
+    public PostResponseDto createPost(PostRequestDto requestDto, User user) {
+        Post post = new Post(requestDto);
+        post.setUser(user);
+
+        postRepository.save(post);
+
+        return new PostResponseDto(post);
+    }
+
+    //전체 게시글 조회
+    public PostListResponseDto getPosts() {
+        List<PostResponseDto> postList = postRepository.findAll().stream()
+                .map(PostResponseDto::new)
+                .collect(Collectors.toList());
+
+        return new PostListResponseDto(postList);
+    }
+
+    //게시글의 ID값 으로 해당 게시글 조회
+    public PostResponseDto getPostById(Long id) {
+        Post post = findPost(id);
+
+        return new PostResponseDto(post);
+    }
+
+    //게시글 삭제
+    public void deletePost(Long id, User user) {
+        Post post = findPost(id);
+
+        // 게시글 작성자(post.user) 와 요청자(user) 가 같은지 또는 Admin 인지 체크 (아니면 예외발생)
+        if (!(user.getRole().equals(UserRoleEnum.ADMIN) || post.getUser().equals(user))) {
+            throw new RejectedExecutionException();
         }
-        return postResponseDtoList;
-    }
 
-    public List<PostResponseDto> getPostListV2() {
-        // 방법2. Stream 형태로 변환해서 리스트로 바로 만들어주기
-        return postRepository.findAllByOrderByCreateAtDesc().stream() // DB 에서 조회한 List 를 Stream 으로 변환
-            .map(PostResponseDto::new)  // Stream 처리를 통해 Post 를 PostResponseDto 로 변환
-            .toList(); // Stream 을 List 로 다시 변환
-    }
-
-    // id 값으로 해당 포스트를 찾아서 PostResponseDto 타입으로 반환함 -> 특정 글 찾기
-    public PostResponseDto getPost(Long id) {
-        Post post = findPost(id);
-        return new PostResponseDto(post);
-    }
-
-    //게시글 생성, 저장
-    public PostResponseDto createPost(PostRequestDto postRequestDto) {
-        // 게시글 생성
-        Post post = new Post(postRequestDto);
-        // 게시글 저장
-        Post savePost = postRepository.save(post);
-        return new PostResponseDto(savePost);
-    }
-
-    @Transactional
-    public PostResponseDto updatePost(Long id, PostRequestDto postRequestDto) {
-        Post post = findPost(id);
-        // 비밀번호 체크
-        post.checkPassword(postRequestDto.getPassword());
-
-        // 필드 업데이트
-        post.setTitle(postRequestDto.getTitle());
-        post.setName(postRequestDto.getName());
-        post.setContent(postRequestDto.getContent());
-
-        return new PostResponseDto(post);
-    }
-
-    public void deletePost(Long id, String password) {
-        Post post = findPost(id);
-        // 비밀번호 체크
-        post.checkPassword(password);
-
-        // 삭제 처리
         postRepository.delete(post);
     }
 
-    private Post findPost(Long id) {
-        return postRepository.findById(id).orElseThrow(() ->
-            new IllegalArgumentException("해당 회원이 존재하지 않습니다."));
+    //게시글 수정
+    @Transactional
+    public PostResponseDto updatePost(Long id, PostRequestDto requestDto, User user) {
+        Post post = findPost(id);
+
+        // 게시글 작성자(post.user) 와 요청자(user) 가 같은지 또는 Admin 인지 체크 (아니면 예외발생)
+        if (!(user.getRole().equals(UserRoleEnum.ADMIN) || post.getUser().equals(user))) { // 관리자 or 작성자 -> 둘중하나가 참이면 if문 안들어감
+            throw new RejectedExecutionException();
+        }
+
+        post.setTitle(requestDto.getTitle());
+        post.setContent(requestDto.getContent());
+
+        return new PostResponseDto(post);
     }
 
+    //ID로 해당 게시글 DB 에서 찾아서 Post 로 반환
+    public Post findPost(long id) {
+        return postRepository.findById(id).orElseThrow(() ->
+                new IllegalArgumentException("선택한 게시글은 존재하지 않습니다.")
+        );
+    }
 }
